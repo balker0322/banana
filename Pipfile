@@ -4,8 +4,19 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+matplotlib = "*"
+numpy = "*"
+ta-lib = "*"
+pandas = "*"
+bravado = "*"
+websocket-client = "*"
+hyperopt = "*"
+pyti = "*"
+google-api-python-client = "*"
+oauth2client = "*"
 
 [dev-packages]
+ipykernel = "*"
 
 [requires]
 python_version = "3.8"
