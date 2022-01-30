@@ -1,0 +1,10 @@
+matplotlib
+numpy
+ta-lib
+pandas
+bravado
+websocket-client
+hyperopt
+pyti
+google-api-python-client
+oauth2client
