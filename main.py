@@ -45,6 +45,7 @@ class BinanceFutures(ar.BinanceFutures):
 
     def __init__(self):
         self.account='binanceaccount2'
+        self.__init_client()
 
     def get_all_pairs(self):
         self.__init_client()
