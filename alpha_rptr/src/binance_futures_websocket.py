@@ -61,15 +61,15 @@ class BinanceFuturesWs:
         self.account = account
         self.pair = pair.lower()
         self.testnet = test
-        if test:
+        self.start()
+
+    def start(self):
+        if self.testnet:
             domain = 'testnet.bitmex.com'
         else:
             domain = 'fstream.binance.com'
         self.__get_auth_user_data_streams()
-        self.endpoint = 'wss://' + domain + '/stream?streams=' + self.listenKey + '/' + self.pair + '@ticker/' + self.pair + '@kline_1m/' \
-                        + self.pair + '@kline_5m/' + self.pair + '@kline_30m/' \
-                        + self.pair + '@kline_1h/'  + self.pair + '@kline_1d/' + self.pair + '@kline_1w/' \
-                        + self.pair + '@depth20@100ms/' + self.pair + '@bookTicker'
+        self.endpoint = 'wss://' + domain + '/stream?streams=' + self.listenKey + '/' + self.get_endpoint_trail()
         self.ws = websocket.WebSocketApp(self.endpoint,
                              on_message=self.__on_message,
                              on_error=self.__on_error,
@@ -79,6 +79,14 @@ class BinanceFuturesWs:
         self.wst.daemon = True
         self.wst.start()
         self.__keep_alive_user_datastream(self.listenKey)
+
+    def get_endpoint_trail(self):
+        endpoint_trail=self.pair + '@ticker/' + self.pair + '@kline_1m/' \
+                        + self.pair + '@kline_5m/' + self.pair + '@kline_30m/' \
+                        + self.pair + '@kline_1h/'  + self.pair + '@kline_1d/' + self.pair + '@kline_1w/' \
+                        + self.pair + '@depth20@100ms/' + self.pair + '@bookTicker'
+        return endpoint_trail
+        
    
     def __get_auth_user_data_streams(self):
         """
@@ -89,6 +97,7 @@ class BinanceFuturesWs:
         
         if len(api_key) > 0 and len(api_secret):
             self.listenKey = get_listenkey(api_key, api_secret) 
+            print(f'self.listenKey: {self.listenKey}')
         else:
             logger.info("WebSocket is not able to get listenKey for user data streams")    
 
@@ -155,8 +164,10 @@ class BinanceFuturesWs:
                         "close" : float(datas['k']['c']),
                         "volume" : float(datas['k']['v'])
                     }]                     
-                    data[0]['timestamp'] = datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)                                        
-                    self.__emit(obj['data']['k']['i'], action, to_data_frame([data[0]]))                    
+                    data[0]['timestamp'] = datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)    
+                    # self.__emit(obj['data']['k']['i'], action, to_data_frame([data[0]]))                    
+                    key=f"{datas['s'].lower()}_{obj['data']['k']['i']}"                                
+                    self.__emit(key, action, to_data_frame([data[0]]))                    
                 elif e.startswith("24hrTicker"):
                     self.__emit(e, action, datas)               
 
@@ -184,8 +195,6 @@ class BinanceFuturesWs:
                 #logger.info(f"{data}")
                 self.__emit(e, action, data)
 
-
-
         except Exception as e:
             logger.error(e)
             logger.error(traceback.format_exc())
@@ -197,7 +206,7 @@ class BinanceFuturesWs:
         if key in self.handlers:
             self.handlers[key](action, value)
 
-    def __on_close(self, ws):
+    def __on_close(self, ws, *args, **kwargs):
         """
         On Close Listener
         :param ws:
@@ -231,14 +240,16 @@ class BinanceFuturesWs:
         :param key:
         :param func:
         """
-        if key == '1m':
-            self.handlers['1m'] = func
-        if key == '5m':
-            self.handlers['5m'] = func
-        if key == '1h':
-            self.handlers['1h'] = func
-        if key == '1d':
-            self.handlers['1d'] = func
+        if key in ['1m', '5m', '1h', '1d']:
+            self.handlers[self.pair.lower()+'_'+key] = func
+        # if key == '1m':
+        #     self.handlers['1m'] = func
+        # if key == '5m':
+        #     self.handlers['5m'] = func
+        # if key == '1h':
+        #     self.handlers['1h'] = func
+        # if key == '1d':
+        #     self.handlers['1d'] = func
         if key == 'instrument':
             self.handlers['24hrTicker'] = func
         if key == 'margin':

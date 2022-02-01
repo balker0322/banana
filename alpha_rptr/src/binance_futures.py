@@ -851,6 +851,9 @@ class BinanceFutures:
         return resample(self.data, bin_size)[:-1]
 
     def __update_ohlcv(self, action, new_data):
+        self.update_data(action, new_data)
+
+    def update_data(self, action, new_data):
 
         # Binance can output wierd timestamps - Eg. 2021-05-25 16:04:59.999000+00:00
         # We need to round up to the nearest second for further processing
@@ -880,15 +883,17 @@ class BinanceFutures:
             if(self.data.iloc[-1].name == new_data.iloc[0].name):
                 self.data = pd.concat([self.data[:-1], new_data])
             else:
-                self.data = pd.concat([self.data, new_data])        
+                self.data = pd.concat([self.data, new_data])      
 
         # exclude current candle data 
-        qq = resample(self.data, self.bin_size)
         re_sample_data = resample(self.data, self.bin_size)[:-1]
 
-        # print(f"{self.last_action_time} : {self.data.iloc[-1].name} : {re_sample_data.iloc[-1].name}")  
-        print(f"open: {qq['open'].values[-1]}, close: {qq['close'].values[-1]}")
         # logger.info(f"{self.last_action_time} : {self.data.iloc[-1].name} : {re_sample_data.iloc[-1].name}")  
+        # print('=====================')
+        # logger.info(f"last_action_time:             {self.last_action_time}")
+        # logger.info(f"data.iloc[-1].name:           {self.data.iloc[-1].name}")
+        # logger.info(f"re_sample_data.iloc[-1].name: {re_sample_data.iloc[-1].name}")
+        # print('=====================')
 
         if self.last_action_time is not None and \
                 self.last_action_time == re_sample_data.iloc[-1].name:
