@@ -152,7 +152,9 @@ class PairObserver(ar.BinanceFutures):
         super().update_data(action, new_data)
 
     def strategy(self, open, close, high, low, volume):
-        self.controller.update_df(self.pair, self.data)
+        ar.util.logger.info(f'{self.pair}: {((close[-1]/open[-1])-1.0)*100.0:.2f}%')
+        # ar.util.logger.info('{}: {%2f}%'.format(self.pair, ((close[-1]/open[-1])-1.0)*100.0))
+        # self.controller.update_df(self.pair, self.data)
 
 
 import threading
@@ -163,7 +165,7 @@ class Controller:
 
     def __init__(self):
         self.ws=BinanceFuturesWs('binanceaccount2')
-        bin_size='1m'
+        bin_size='15m'
         self.all_pairs=self.get_all_pairs()[:5]
         self.pair_observers={}
         for pair in self.all_pairs:
@@ -264,8 +266,12 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
 
 # '!miniTicker@arr'
 
+
+
 if __name__=="__main__":
-    # main2()
-    BinanceFuturesWsAll().start()
-    while True:
-        pass
+    main2()
+    # BinanceFuturesWsAll().start()
+    # x=ar.util.WebsocketConnectionMonitor()
+    # x.start_monitor()
+    # while True:
+    #     pass

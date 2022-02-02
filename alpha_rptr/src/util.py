@@ -358,27 +358,30 @@ class WebsocketConnectionMonitor:
     responsing within set timeout.
     '''
 
-    def __init__(self, timeout=5):
+    def __init__(self, timeout=10):
         self.__timeout=timeout
         self.__counter=0
         self.__is_running=False
         self.__on_timeout_command=None
-        print('WebsocketConnectionMonitor created')
+        logger.info('WebsocketConnectionMonitor created')
 
-    def start(self):
-        print('monitor start')
+    def start_monitor(self):
+        logger.info('monitor start')
         self.__is_running=True
-        t=threading.Timer(12, self.__start)
+        # self.__start_monitor()
+        t=threading.Thread(target=self.__start_monitor)
         t.daemon = True
         t.start()
     
-    def __start(self):
-        print('monitor __start')
+    def __start_monitor(self):
+        # logger.info('monitor __start')
         while self.__is_running:
-            print(f'counter: {self.__counter}')
+        # while True:
+            # logger.info(f'counter: {self.__counter}')
             sleep(1)
             self.__counter+=1
             if self.__counter>self.__timeout:
+                logger.info('============= self.__counter>self.__timeout ===========')
                 if self.__on_timeout_command:
                     self.__on_timeout_command()
     
@@ -389,5 +392,5 @@ class WebsocketConnectionMonitor:
         self.__is_running=False
     
     def reset_timeout_counter(self):
-        print('reset_timeout_counter')
+        # logger.info('reset_timeout_counter')
         self.__counter=0

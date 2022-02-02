@@ -55,7 +55,8 @@ class BinanceFuturesWs:
     handlers = {}
     listenKey = None
     on_message_hook = None
-    # monitor=WebsocketConnectionMonitor()
+    monitor=WebsocketConnectionMonitor()
+    is_ping_loop_running=False
     
     def __init__(self, account, pair, test=False):
         """
@@ -82,8 +83,8 @@ class BinanceFuturesWs:
         self.wst.daemon = True
         self.wst.start()
         self.__keep_alive_user_datastream(self.listenKey)
-        # self.monitor.set_on_timeout_command(self.__on_restart)
-        # self.monitor.start()
+        self.monitor.set_on_timeout_command(self.__on_restart)
+        self.monitor.start_monitor()
 
     def get_endpoint_trail(self):
         endpoint_trail=self.pair + '@ticker/' + self.pair + '@kline_1m/' \
@@ -154,7 +155,7 @@ class BinanceFuturesWs:
         :param message:
         :return:
         """        
-        # self.monitor.reset_timeout_counter()
+        self.monitor.reset_timeout_counter()
         try:
             obj = json.loads(message)
 
@@ -218,29 +219,31 @@ class BinanceFuturesWs:
         if key in self.handlers:
             self.handlers[key](action, value)
 
-    # def __on_restart(self, ws, *args, **kwargs):
-    #     """
-    #     On Restart Listener
-    #     :param ws:
-    #     """
-    #     if 'close' in self.handlers:
-    #         self.handlers['close']()
+    def __on_restart(self, ws, *args, **kwargs):
+        """
+        On Restart Listener
+        :param ws:
+        """
+        if 'close' in self.handlers:
+            self.handlers['close']()
         
-    #     self.monitor.stop()
-    #     self.is_running=False
-    #     time.sleep(2)
+        self.monitor.stop()
+        self.is_running=False
+        time.sleep(2)
+        self.is_running=True
+        self.monitor.reset_timeout_counter()
 
-    #     logger.info("Websocket restart")
-    #     notify(f"Websocket restart")
+        logger.info("Websocket restart")
+        notify(f"Websocket restart")
 
-    #     self.ws = websocket.WebSocketApp(self.endpoint,
-    #                             on_message=self.__on_message,
-    #                             on_error=self.__on_error,
-    #                             on_close=self.__on_close)                                 
+        self.ws = websocket.WebSocketApp(self.endpoint,
+                                on_message=self.__on_message,
+                                on_error=self.__on_error,
+                                on_close=self.__on_close)                                 
                                 
-    #     self.wst = threading.Thread(target=self.__start)
-    #     self.wst.daemon = True
-    #     self.wst.start()
+        self.wst = threading.Thread(target=self.__start)
+        self.wst.daemon = True
+        self.wst.start()
 
     def __on_close(self, ws, *args, **kwargs):
         """
