@@ -1,6 +1,6 @@
 # coding: UTF-8
 
-from asyncore import file_dispatcher
+# from asyncore import file_dispatcher
 import os, tempfile
 import time
 from datetime import timedelta, datetime, timezone
