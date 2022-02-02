@@ -13,6 +13,7 @@ from datetime import datetime
 from pytz import UTC
 
 from alpha_rptr.src.util import logger, to_data_frame, notify
+from alpha_rptr.src.util import WebsocketConnectionMonitor
 from alpha_rptr.src.config import config as conf
 from alpha_rptr.src.binance_futures_api import Client
 
@@ -54,6 +55,7 @@ class BinanceFuturesWs:
     handlers = {}
     listenKey = None
     on_message_hook = None
+    # monitor=WebsocketConnectionMonitor()
     
     def __init__(self, account, pair, test=False):
         """
@@ -80,6 +82,8 @@ class BinanceFuturesWs:
         self.wst.daemon = True
         self.wst.start()
         self.__keep_alive_user_datastream(self.listenKey)
+        # self.monitor.set_on_timeout_command(self.__on_restart)
+        # self.monitor.start()
 
     def get_endpoint_trail(self):
         endpoint_trail=self.pair + '@ticker/' + self.pair + '@kline_1m/' \
@@ -116,8 +120,11 @@ class BinanceFuturesWs:
         api_key = conf['binance_keys'][self.account]['API_KEY']       
         api_secret = conf['binance_keys'][self.account]['SECRET_KEY']    
         client = Client(api_key, api_secret)
+        # print('A: __keep_alive_user_datastream')
         def loop_function():
-            while self.is_running:
+            # print('B: __keep_alive_user_datastream')
+            while self.is_running: 
+                # print('C: __keep_alive_user_datastream')  
                 client.stream_keepalive()
                 time.sleep(1740)
         timer = threading.Timer(10, loop_function)
@@ -147,6 +154,7 @@ class BinanceFuturesWs:
         :param message:
         :return:
         """        
+        # self.monitor.reset_timeout_counter()
         try:
             obj = json.loads(message)
 
@@ -209,6 +217,30 @@ class BinanceFuturesWs:
         """
         if key in self.handlers:
             self.handlers[key](action, value)
+
+    # def __on_restart(self, ws, *args, **kwargs):
+    #     """
+    #     On Restart Listener
+    #     :param ws:
+    #     """
+    #     if 'close' in self.handlers:
+    #         self.handlers['close']()
+        
+    #     self.monitor.stop()
+    #     self.is_running=False
+    #     time.sleep(2)
+
+    #     logger.info("Websocket restart")
+    #     notify(f"Websocket restart")
+
+    #     self.ws = websocket.WebSocketApp(self.endpoint,
+    #                             on_message=self.__on_message,
+    #                             on_error=self.__on_error,
+    #                             on_close=self.__on_close)                                 
+                                
+    #     self.wst = threading.Thread(target=self.__start)
+    #     self.wst.daemon = True
+    #     self.wst.start()
 
     def __on_close(self, ws, *args, **kwargs):
         """

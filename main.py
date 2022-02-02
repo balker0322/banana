@@ -240,6 +240,7 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
         self.on_message_hook=self.on_message_handler
     
     def on_message_handler(self, msg):
+        return
         print(msg.keys(), len(msg))
         print(type(msg['stream']))
         print(type(msg['data']), len(msg['data']))

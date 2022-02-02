@@ -15,6 +15,9 @@ from bravado.exception import HTTPError
 
 from alpha_rptr.src.config import config as conf
 
+import threading
+from time import sleep
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -347,3 +350,44 @@ def is_over(src, value, p):
         if src[-i - 1] < value:
             return False
     return True
+
+
+class WebsocketConnectionMonitor:
+    '''
+    Continuously monitoring websocket connection if still
+    responsing within set timeout.
+    '''
+
+    def __init__(self, timeout=5):
+        self.__timeout=timeout
+        self.__counter=0
+        self.__is_running=False
+        self.__on_timeout_command=None
+        print('WebsocketConnectionMonitor created')
+
+    def start(self):
+        print('monitor start')
+        self.__is_running=True
+        t=threading.Timer(12, self.__start)
+        t.daemon = True
+        t.start()
+    
+    def __start(self):
+        print('monitor __start')
+        while self.__is_running:
+            print(f'counter: {self.__counter}')
+            sleep(1)
+            self.__counter+=1
+            if self.__counter>self.__timeout:
+                if self.__on_timeout_command:
+                    self.__on_timeout_command()
+    
+    def set_on_timeout_command(self, func):
+        self.__on_timeout_command=func
+    
+    def start(self):
+        self.__is_running=False
+    
+    def reset_timeout_counter(self):
+        print('reset_timeout_counter')
+        self.__counter=0
