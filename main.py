@@ -152,7 +152,9 @@ class PairObserver(ar.BinanceFutures):
         super().update_data(action, new_data)
 
     def strategy(self, open, close, high, low, volume):
-        ar.util.logger.info(f'{self.pair}: {((close[-1]/open[-1])-1.0)*100.0:.2f}%')
+        delta=((close[-1]/open[-1])-1.0)*100.0
+        if abs(delta) > 1.5:
+            ar.util.logger.info(f'{self.pair}: {delta:.2f}%')
         # ar.util.logger.info('{}: {%2f}%'.format(self.pair, ((close[-1]/open[-1])-1.0)*100.0))
         # self.controller.update_df(self.pair, self.data)
 
@@ -166,8 +168,10 @@ class Controller:
     def __init__(self):
         self.ws=BinanceFuturesWs('binanceaccount2')
         bin_size='15m'
-        self.all_pairs=self.get_all_pairs()[:5]
+        # self.all_pairs=self.get_all_pairs()[:5]
+        self.all_pairs=self.get_all_pairs()
         self.pair_observers={}
+        print(f'pair count: {len(self.all_pairs)}')
         for pair in self.all_pairs:
             pair_observer=PairObserver(pair, bin_size, self)
             self.ws.attach(pair_observer)
@@ -175,7 +179,7 @@ class Controller:
         self.count_start=False
 
     def get_all_pairs(self):
-        return BinanceFutures().get_all_pairs()
+        return [x for x in BinanceFutures().get_all_pairs() if x.endswith('USDT')]
     
     def start_count_countdown(self):
         self.count_start=True
@@ -274,4 +278,4 @@ if __name__=="__main__":
     # x=ar.util.WebsocketConnectionMonitor()
     # x.start_monitor()
     # while True:
-    #     pass
+        # pass
