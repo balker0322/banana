@@ -226,5 +226,43 @@ def main2():
 
 
 
+
+class BinanceFuturesWsAll(ar.BinanceFuturesWs):
+
+    def __init__(self, test=False):
+        """
+        constructor
+        """
+        self.account = 'binanceaccount2'
+        self.testnet = test
+        # self.pair='btcusdt'
+        # self.kline_stream_names=[]
+        self.on_message_hook=self.on_message_handler
+    
+    def on_message_handler(self, msg):
+        print(msg.keys(), len(msg))
+        print(type(msg['stream']))
+        print(type(msg['data']), len(msg['data']))
+        print(msg['data'][0])
+
+    def get_endpoint_trail(self):
+        return '/!miniTicker@arr'
+
+    # def attach(self, kline_observer):
+    #     kline_stream_name=f'{kline_observer.pair.lower()}@kline_{kline_observer.bin_size}'
+    #     self.kline_stream_names.append(kline_stream_name)
+    #     self.bind_kline(kline_observer.pair, kline_observer.bin_size, kline_observer.on_update)
+    
+    # def bind_kline(self, pair, bin_size, func):
+    #     self.handlers[f'{pair.lower()}_{bin_size.lower()}']=func
+
+
+
+
+# '!miniTicker@arr'
+
 if __name__=="__main__":
-    main2()
+    # main2()
+    BinanceFuturesWsAll().start()
+    while True:
+        pass

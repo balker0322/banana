@@ -53,6 +53,7 @@ class BinanceFuturesWs:
     # Notification destination listener
     handlers = {}
     listenKey = None
+    on_message_hook = None
     
     def __init__(self, account, pair, test=False):
         """
@@ -148,6 +149,9 @@ class BinanceFuturesWs:
         """        
         try:
             obj = json.loads(message)
+
+            if self.on_message_hook:
+                self.on_message_hook(obj)
             
             
             if 'e' in obj['data']:                
