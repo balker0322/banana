@@ -243,7 +243,9 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
         print(msg.keys(), len(msg))
         print(type(msg['stream']))
         print(type(msg['data']), len(msg['data']))
-        print(msg['data'][0])
+        for key in msg['data'][0].keys():
+            print(key, msg['data'][0][key])
+
 
     def get_endpoint_trail(self):
         return '/!miniTicker@arr'
