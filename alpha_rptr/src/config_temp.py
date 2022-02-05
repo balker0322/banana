@@ -11,5 +11,6 @@ config = {
                     "bitmextest1":{"API_KEY": "", "SECRET_KEY": ""},
                     "bitmextest2": {"API_KEY": "", "SECRET_KEY": ""}
                     },
-    "line_apikey": {"API_KEY": ""}                       
+    "line_apikey": {"API_KEY": ""},
+    "telegram_apikey": {"API_KEY": ""},                       
 }

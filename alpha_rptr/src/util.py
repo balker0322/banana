@@ -18,6 +18,8 @@ from alpha_rptr.src.config import config as conf
 import threading
 from time import sleep
 
+from .telegrambot import telegram_bot
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -265,6 +267,8 @@ def delta(bin_size='1h'):
 
 
 def notify(message: object, fileName: object = None) -> object:
+
+    telegram_bot.send_message(str(message))
     url = 'https://notify-api.line.me/api/notify'
     #api_key = os.environ.get('LINE_APIKEY')
     api_key = conf['line_apikey']['API_KEY']
@@ -394,3 +398,4 @@ class WebsocketConnectionMonitor:
     def reset_timeout_counter(self):
         # logger.info('reset_timeout_counter')
         self.__counter=0
+

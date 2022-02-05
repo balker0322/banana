@@ -1,5 +1,7 @@
 # from cgitb import handler
 import alpha_rptr as ar
+from datetime import datetime, timezone, timedelta
+from pytz import UTC
 
 
 class BinanceFuturesWs(ar.BinanceFuturesWs):
@@ -139,24 +141,117 @@ def plot_ani():
 
 class PairObserver(ar.BinanceFutures):
 
-    ohlcv_len=100
+    ohlcv_len=5
     
     def __init__(self, pair, bin_size, controller):
         self.account='binanceaccount2'
         self.pair=pair
         self.bin_size=bin_size
         self.controller=controller
+
+    def __initialize_candle_data(self):
+            end_time = datetime.now(timezone.utc)
+            start_time = end_time - self.ohlcv_len * ar.util.delta(self.bin_size)
+            self.data = self.fetch_ohlcv(self.bin_size, start_time, end_time)
+            
+            # The last candle is an incomplete candle with timestamp
+            # in future
+            if(self.data.iloc[-1].name > end_time):
+                last_candle = self.data.iloc[-1].values # Store last candle
+                self.data = self.data[:-1] # exclude last candle
+                self.data.loc[end_time.replace(microsecond=0)] = last_candle #set last candle to end_time
+
+            ar.util.logger.info(f"Initial Buffer Fill - Last Candle: {self.data.iloc[-1].name}")
+    
+    def __update_next_action_timestamp(self):
+        current_timestamp=int(datetime.now().timestamp())
+        delta=ar.util.delta(self.bin_size).seconds
+        self.next_action_timestamp=int(float(current_timestamp)/float(delta))+delta
+    
+    def __update_last_candle(self, new_data):
+        '''
+        - self.data[-1]['open'] -> new_cs['open']
+        - new_data['close'] -> new_cs['close']
+        - if new_data['close'] > self.data['high'] -> new_cs['high']
+        - if new_data['close'] < self.data['low'] -> new_cs['low']
+        - if new_data['volume'] > volume_ref, new_data['volume']-volume_ref -> new_cs['volume']
+        - self.data[-1] w/ new_cs
+        '''
+        pass
+
+
+    def __update_data(self, action, new_data):
+     
+        if self.data is None:
+
+            self.__initialize_candle_data()
+            self.__update_next_action_timestamp()
+
+        else:
+
+            new_data_timestamp=new_data.name.timestamp()
+
+            if new_data_timestamp < self.next_action_timestamp:
+
+                self.__update_last_candle(new_data)
+
+            else:
+
+                new_candle=self.__create_new_candle(new_data['close'])
+                self.data.append(new_candle)
+                self.data=self.data[-self.ohlcv_len:]
+                self.__update_next_action_timestamp()
+
+        self.volume_ref=new_data['volume']
+
+   
     
     def on_update(self, action, new_data):
-        # print(self.pair, self.bin_size)
+        '''
+        state 1: data is empty
+        - download candle_stick(bin_size, ohlcv_len) -> self.data
+        - save new_data['volume'] -> volume_ref
+        - save new_data['close] -> market_price
+        - calculate next action time stamp -> next_action_time_stamp
+
+        state 2: new_data_time_stamp < next_action_time_stamp
+        - save new_data['close] -> market_price
+        - update_last_candle(new_data)
+        - save new_data['volume'] -> volume_ref
+
+        state 3: new_data_time_stamp > next_action_time_stamp
+        - save new_data['close] -> market_price
+        - create_new_candle(market_price)
+        - recalculate next_action_time_stamp
+        - save new_data['volume'] -> volume_ref
+        - append new_cs to self.data
+        - self.data[-ohlcv_len:] -> self.data
+
+        '''
         super().update_data(action, new_data)
 
     def strategy(self, open, close, high, low, volume):
         delta=((close[-1]/open[-1])-1.0)*100.0
-        if abs(delta) > 1.5:
-            ar.util.logger.info(f'{self.pair}: {delta:.2f}%')
+        if abs(delta) > 0.5:
+            info=f'{self.pair}: {delta:.2f}%'
+            ar.util.logger.info(info)
+            ar.util.notify(info)
         # ar.util.logger.info('{}: {%2f}%'.format(self.pair, ((close[-1]/open[-1])-1.0)*100.0))
         # self.controller.update_df(self.pair, self.data)
+    
+    # def update_last_candle(self, new_data):
+    #     '''
+    #     - self.data[-1]['open'] -> new_cs['open']
+    #     - new_data['close'] -> new_cs['close']
+    #     - if new_data['close'] > self.data['high'] -> new_cs['high']
+    #     - if new_data['close'] < self.data['low'] -> new_cs['low']
+    #     - if new_data['volume'] > volume_ref, new_data['volume']-volume_ref -> new_cs['volume']
+    #     - self.data[-1] w/ new_cs
+    #     '''
+    #     pass
+
+
+
 
 
 import threading
@@ -167,7 +262,7 @@ class Controller:
 
     def __init__(self):
         self.ws=BinanceFuturesWs('binanceaccount2')
-        bin_size='15m'
+        bin_size='1m'
         # self.all_pairs=self.get_all_pairs()[:5]
         self.all_pairs=self.get_all_pairs()
         self.pair_observers={}
@@ -246,12 +341,22 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
         self.on_message_hook=self.on_message_handler
     
     def on_message_handler(self, msg):
-        return
-        print(msg.keys(), len(msg))
-        print(type(msg['stream']))
-        print(type(msg['data']), len(msg['data']))
-        for key in msg['data'][0].keys():
-            print(key, msg['data'][0][key])
+        # return
+        # print(msg['data'][0])
+        # print(msg.keys(), len(msg))
+        # print(type(msg['stream']))
+        # print(type(msg['data']), len(msg['data']))
+        # for key in msg['data'][0].keys():
+        #     print(key, msg['data'][0][key])
+        t=msg['data'][0]['E']
+        print(t)
+        # datetime.fromtimestamp(t/1000)
+        print(int(datetime.fromtimestamp(t/1000).astimezone(UTC).timestamp()))
+
+        print(datetime.fromtimestamp(t/1000).astimezone(UTC))
+        print()
+
+        # datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)    
 
 
     def get_endpoint_trail(self):
@@ -272,10 +377,12 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
 
 
 
+
 if __name__=="__main__":
-    main2()
-    # BinanceFuturesWsAll().start()
+    # ar.telegrambot.main()
+    # main2()
+    BinanceFuturesWsAll().start()
     # x=ar.util.WebsocketConnectionMonitor()
     # x.start_monitor()
-    # while True:
-        # pass
+    while True:
+        pass
