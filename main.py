@@ -169,36 +169,35 @@ class PairObserver(ar.BinanceFutures):
         self.next_action_timestamp=int(float(current_timestamp)/float(delta))+delta
     
     def __update_last_candle(self, new_data):
-        '''
-        - self.data[-1]['open'] -> new_cs['open']
-        - new_data['close'] -> new_cs['close']
-        - if new_data['close'] > self.data['high'] -> new_cs['high']
-        - if new_data['close'] < self.data['low'] -> new_cs['low']
-        - if new_data['volume'] > volume_ref, new_data['volume']-volume_ref -> new_cs['volume']
-        - self.data[-1] w/ new_cs
-        '''
-        pass
+        self.data.iloc[-1]['close']=new_data['close']
+        if new_data['close']>self.data.iloc[-1]['high']:
+            self.data.iloc[-1]['high']=new_data['close']
+        if new_data['close']<self.data.iloc[-1]['low']:
+            self.data.iloc[-1]['low']=new_data['close']
+        if new_data['volume']>self.volume_ref:
+            self.data.iloc[-1]['volume']=new_data['volume']-self.volume_ref
 
 
     def __update_data(self, action, new_data):
      
         if self.data is None:
-
             self.__initialize_candle_data()
             self.__update_next_action_timestamp()
 
         else:
-
             new_data_timestamp=new_data.name.timestamp()
 
             if new_data_timestamp < self.next_action_timestamp:
-
                 self.__update_last_candle(new_data)
 
             else:
-
-                new_candle=self.__create_new_candle(new_data['close'])
-                self.data.append(new_candle)
+                self.data.loc[new_data.name]={
+                    'open':new_data['close'],
+                    'high':new_data['close'],
+                    'low':new_data['close'],
+                    'close':new_data['close'],
+                    'volume':0.0,
+                }
                 self.data=self.data[-self.ohlcv_len:]
                 self.__update_next_action_timestamp()
 
