@@ -149,7 +149,6 @@ class PairObserver(ar.BinanceFutures):
         self.bin_size=bin_size
         self.controller=controller
         self.__bind_ws(controller.ws)
-        ar.util.notify(f'monitoring {self.pair}')
 
     def __bind_ws(self, ws):
         ws.bind_24hr_mini_ticker(self.pair, self.__update_data)
@@ -202,6 +201,14 @@ class PairObserver(ar.BinanceFutures):
             else:
                 self.__update_next_action_timestamp()
                 index=datetime.fromtimestamp(self.next_action_timestamp).astimezone(UTC)
+
+                open = self.data['open'].values
+                close = self.data['close'].values
+                high = self.data['high'].values
+                low = self.data['low'].values
+                volume = self.data['volume'].values  
+                self.strategy(open, close, high, low, volume)
+
                 nd_close=new_data.iloc[0]['close']
                 self.data.loc[index]={
                     'open':nd_close,
@@ -215,17 +222,17 @@ class PairObserver(ar.BinanceFutures):
 
         # print(self.volume_ref)
 
-        open = self.data['open'].values
-        close = self.data['close'].values
-        high = self.data['high'].values
-        low = self.data['low'].values
-        volume = self.data['volume'].values  
-        self.strategy(open, close, high, low, volume)
-        o=open[-1]
-        c=close[-1]
-        h=high[-1]
-        l=low[-1]
-        v=volume[-1]
+        # open = self.data['open'].values
+        # close = self.data['close'].values
+        # high = self.data['high'].values
+        # low = self.data['low'].values
+        # volume = self.data['volume'].values  
+        # self.strategy(open, close, high, low, volume)
+        # o=open[-1]
+        # c=close[-1]
+        # h=high[-1]
+        # l=low[-1]
+        # v=volume[-1]
         # print(f'__update_data {self.pair}:\tclose:{c}\topen:{o}\thigh:{h}\tlow:{l}\tvolume:{v}')
 
 
@@ -253,6 +260,7 @@ class Controller:
         for pair in self.all_pairs:
             pair_observer=PairObserver(pair, bin_size, self)
         self.count_start=False
+        ar.util.notify(f'starting')
 
     def get_all_pairs(self):
         return [x for x in BinanceFutures().get_all_pairs() if x.endswith('USDT')]
@@ -277,51 +285,13 @@ class BinanceFuturesWsMiniTickerAll(ar.BinanceFuturesWs):
         constructor
         """
         self.account = 'binanceaccount2'
-        self.testnet = test
-        # self.pair='btcusdt'
-        # self.kline_stream_names=[]
-        # self.on_message_hook=self.on_message_handler
-    
-    def on_message_handler(self, msg):
-        x=msg['data']
-        print(isinstance(x, list))
-        return
-        # print(msg['data'][0])
-        print(msg.keys(), len(msg))
-        # print(type(msg['stream']))
-        # print(type(msg['data']), len(msg['data']))
-        # for key in msg['data'][0].keys():
-        #     print(key, msg['data'][0][key])
-        t=msg['stream']
-        print(t)
-        # datetime.fromtimestamp(t/1000)
-        # print(int(datetime.fromtimestamp(t/1000).astimezone(UTC).timestamp()))
-
-        # print(datetime.fromtimestamp(t/1000).astimezone(UTC))
-        # print()
-
-        # datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)    
-
+        self.testnet = test  
 
     def get_endpoint_trail(self):
         return '/!miniTicker@arr'
     
     def bind_24hr_mini_ticker(self, pair, func):
         self.handlers[f'24hrMiniTicker_{pair.lower()}']=func
-
-    # def attach(self, kline_observer):
-    #     kline_stream_name=f'{kline_observer.pair.lower()}@kline_{kline_observer.bin_size}'
-    #     self.kline_stream_names.append(kline_stream_name)
-    #     self.bind_kline(kline_observer.pair, kline_observer.bin_size, kline_observer.on_update)
-    
-    # def bind_kline(self, pair, bin_size, func):
-    #     self.handlers[f'{pair.lower()}_{bin_size.lower()}']=func
-
-
-
-
-# '!miniTicker@arr'
-
 
 
 
