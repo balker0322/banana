@@ -201,6 +201,7 @@ class PairObserver(MiniTickerObserver):
         low = self.data['low'].values
         volume = self.data['volume'].values  
         self.strategy(open[:-1], close[:-1], high[:-1], low[:-1], volume[:-1])
+        self.__announce=True
 
             
     def on_data_change(self):
@@ -211,7 +212,7 @@ class PairObserver(MiniTickerObserver):
         high = self.data['high'].values
         low = self.data['low'].values
         volume = self.data['volume'].values  
-        # self.strategy(open, close, high, low, volume)
+        self.strategy(open, close, high, low, volume)
         # o=open[-1]
         # c=close[-1]
         # h=high[-1]
@@ -219,9 +220,9 @@ class PairObserver(MiniTickerObserver):
         # v=volume[-1]
         # print(f'__update_data {self.pair}:\tclose:{c}\topen:{o}\thigh:{h}\tlow:{l}\tvolume:{v}')
 
-        percent_change=((close[-1]/open[-1])-1.0)*100.0
-        if abs(percent_change) > 2.00:
-            ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
+        # percent_change=((close[-1]/open[-1])-1.0)*100.0
+        # if abs(percent_change) > 2.00 and not self.__stop_announce:
+        #     ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
             
     def on_action_timestamp(self):
 
@@ -230,13 +231,18 @@ class PairObserver(MiniTickerObserver):
         high = self.data['high'].values
         low = self.data['low'].values
         volume = self.data['volume'].values  
+        self.__announce=True
+        self.strategy(open, close, high, low, volume)
+        self.__announce=True
 
     def strategy(self, open, close, high, low, volume):
         percent_change=((close[-1]/open[-1])-1.0)*100.0
-        if abs(percent_change) > 1.00:
-            ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
-        if abs(percent_change) > 2.00:
-            ar.util.notify('{}: {:.2f}%'.format(self.pair, percent_change))
+        if self.__announce:
+            if abs(percent_change) > 1.00:
+                ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
+            if abs(percent_change) > 2.00:
+                ar.util.notify('{}: {:.2f}%'.format(self.pair, percent_change))
+            self.__announce=False
 
 
 
