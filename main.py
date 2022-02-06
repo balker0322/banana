@@ -148,6 +148,11 @@ class PairObserver(ar.BinanceFutures):
         self.pair=pair
         self.bin_size=bin_size
         self.controller=controller
+        self.__bind_ws(controller.ws)
+        ar.util.notify(f'monitoring {self.pair}')
+
+    def __bind_ws(self, ws):
+        ws.bind_24hr_mini_ticker(self.pair, self.__update_data)
 
     def __initialize_candle_data(self):
             end_time = datetime.now(timezone.utc)
@@ -166,16 +171,19 @@ class PairObserver(ar.BinanceFutures):
     def __update_next_action_timestamp(self):
         current_timestamp=int(datetime.now().timestamp())
         delta=ar.util.delta(self.bin_size).seconds
-        self.next_action_timestamp=int(float(current_timestamp)/float(delta))+delta
+        self.next_action_timestamp=(int(float(current_timestamp)/float(delta))+1)*delta
     
     def __update_last_candle(self, new_data):
-        self.data.iloc[-1]['close']=new_data['close']
-        if new_data['close']>self.data.iloc[-1]['high']:
-            self.data.iloc[-1]['high']=new_data['close']
-        if new_data['close']<self.data.iloc[-1]['low']:
-            self.data.iloc[-1]['low']=new_data['close']
-        if new_data['volume']>self.volume_ref:
-            self.data.iloc[-1]['volume']=new_data['volume']-self.volume_ref
+        nd=new_data.iloc[0]
+        last_data_timestamp=self.data.iloc[-1].name
+        self.data.loc[last_data_timestamp, 'close']=nd['close']
+        if float(nd['close'])>float(self.data.loc[last_data_timestamp, 'high']):
+            self.data.loc[last_data_timestamp, 'high']=nd['close']
+        if float(nd['close'])<float(self.data.loc[last_data_timestamp, 'low']):
+            self.data.loc[last_data_timestamp, 'low']=nd['close']
+        if float(nd['volume'])>float(self.volume_ref):
+            delta_v=nd['volume']-self.volume_ref
+            self.data.loc[last_data_timestamp, 'volume']+=delta_v
 
 
     def __update_data(self, action, new_data):
@@ -185,71 +193,47 @@ class PairObserver(ar.BinanceFutures):
             self.__update_next_action_timestamp()
 
         else:
-            new_data_timestamp=new_data.name.timestamp()
+            new_data_timestamp=new_data.iloc[0].name.timestamp()
 
+            # print(f'**{new_data_timestamp}\t{self.next_action_timestamp}')
             if new_data_timestamp < self.next_action_timestamp:
                 self.__update_last_candle(new_data)
 
             else:
-                self.data.loc[new_data.name]={
-                    'open':new_data['close'],
-                    'high':new_data['close'],
-                    'low':new_data['close'],
-                    'close':new_data['close'],
+                self.__update_next_action_timestamp()
+                index=datetime.fromtimestamp(self.next_action_timestamp).astimezone(UTC)
+                nd_close=new_data.iloc[0]['close']
+                self.data.loc[index]={
+                    'open':nd_close,
+                    'high':nd_close,
+                    'low':nd_close,
+                    'close':nd_close,
                     'volume':0.0,
                 }
                 self.data=self.data[-self.ohlcv_len:]
-                self.__update_next_action_timestamp()
+        self.volume_ref=new_data.iloc[0]['volume']
 
-        self.volume_ref=new_data['volume']
+        # print(self.volume_ref)
 
-   
-    
-    def on_update(self, action, new_data):
-        '''
-        state 1: data is empty
-        - download candle_stick(bin_size, ohlcv_len) -> self.data
-        - save new_data['volume'] -> volume_ref
-        - save new_data['close] -> market_price
-        - calculate next action time stamp -> next_action_time_stamp
+        open = self.data['open'].values
+        close = self.data['close'].values
+        high = self.data['high'].values
+        low = self.data['low'].values
+        volume = self.data['volume'].values  
+        self.strategy(open, close, high, low, volume)
+        o=open[-1]
+        c=close[-1]
+        h=high[-1]
+        l=low[-1]
+        v=volume[-1]
+        # print(f'__update_data {self.pair}:\tclose:{c}\topen:{o}\thigh:{h}\tlow:{l}\tvolume:{v}')
 
-        state 2: new_data_time_stamp < next_action_time_stamp
-        - save new_data['close] -> market_price
-        - update_last_candle(new_data)
-        - save new_data['volume'] -> volume_ref
-
-        state 3: new_data_time_stamp > next_action_time_stamp
-        - save new_data['close] -> market_price
-        - create_new_candle(market_price)
-        - recalculate next_action_time_stamp
-        - save new_data['volume'] -> volume_ref
-        - append new_cs to self.data
-        - self.data[-ohlcv_len:] -> self.data
-
-        '''
-        super().update_data(action, new_data)
 
     def strategy(self, open, close, high, low, volume):
-        delta=((close[-1]/open[-1])-1.0)*100.0
-        if abs(delta) > 0.5:
-            info=f'{self.pair}: {delta:.2f}%'
-            ar.util.logger.info(info)
-            ar.util.notify(info)
-        # ar.util.logger.info('{}: {%2f}%'.format(self.pair, ((close[-1]/open[-1])-1.0)*100.0))
-        # self.controller.update_df(self.pair, self.data)
-    
-    # def update_last_candle(self, new_data):
-    #     '''
-    #     - self.data[-1]['open'] -> new_cs['open']
-    #     - new_data['close'] -> new_cs['close']
-    #     - if new_data['close'] > self.data['high'] -> new_cs['high']
-    #     - if new_data['close'] < self.data['low'] -> new_cs['low']
-    #     - if new_data['volume'] > volume_ref, new_data['volume']-volume_ref -> new_cs['volume']
-    #     - self.data[-1] w/ new_cs
-    #     '''
-    #     pass
-
-
+        percent_change=((close[-1]/open[-1])-1.0)*100.0
+        ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
+        if abs(percent_change) > 2.00:
+            ar.util.notify('{}: {:.2f}%'.format(self.pair, percent_change))
 
 
 
@@ -260,59 +244,18 @@ import pandas as pd
 class Controller:
 
     def __init__(self):
-        self.ws=BinanceFuturesWs('binanceaccount2')
-        bin_size='1m'
-        # self.all_pairs=self.get_all_pairs()[:5]
+        # self.ws=BinanceFuturesWs('binanceaccount2')
+        self.ws=BinanceFuturesWsMiniTickerAll()
+        bin_size='15m'
         self.all_pairs=self.get_all_pairs()
         self.pair_observers={}
         print(f'pair count: {len(self.all_pairs)}')
         for pair in self.all_pairs:
             pair_observer=PairObserver(pair, bin_size, self)
-            self.ws.attach(pair_observer)
-            self.pair_observers[pair]=pair_observer
         self.count_start=False
 
     def get_all_pairs(self):
         return [x for x in BinanceFutures().get_all_pairs() if x.endswith('USDT')]
-    
-    def start_count_countdown(self):
-        self.count_start=True
-        sleep(10)
-        self.notify_analysis()
-        self.count_start=False
-    
-    def update_df(self, pair, df):
-        if not self.count_start:
-            t = threading.Thread(target=self.start_count_countdown)   
-            t.daemon = True
-            t.start()
-
-    def notify_analysis(self):
-        df = self.create_df()
-        print(df.head())
-        # self.add_percent_change(df)
-        # ar.util.logger.info('Completes')
-    
-    def create_df(self):
-        df={
-            'pair':[],
-            'close':[],
-            'open':[],
-        }
-        pairs=[]
-        for pair, obj in self.pair_observers.items():
-            try:
-                # dummy_df:pd.DataFrame
-                dummy_df = obj.data.iloc[:-1]
-                df['pair'].append(pair)
-                df['close'].append(dummy_df['close'].values[-1])
-                df['open'].append(dummy_df['open'].values[-1])
-                pairs.append(pair)
-            except:
-                continue
-        return pd.DataFrame(df, index = pairs)
-
-
 
     def run(self):
         self.ws.start()
@@ -327,7 +270,7 @@ def main2():
 
 
 
-class BinanceFuturesWsAll(ar.BinanceFuturesWs):
+class BinanceFuturesWsMiniTickerAll(ar.BinanceFuturesWs):
 
     def __init__(self, test=False):
         """
@@ -337,29 +280,34 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
         self.testnet = test
         # self.pair='btcusdt'
         # self.kline_stream_names=[]
-        self.on_message_hook=self.on_message_handler
+        # self.on_message_hook=self.on_message_handler
     
     def on_message_handler(self, msg):
-        # return
+        x=msg['data']
+        print(isinstance(x, list))
+        return
         # print(msg['data'][0])
-        # print(msg.keys(), len(msg))
+        print(msg.keys(), len(msg))
         # print(type(msg['stream']))
         # print(type(msg['data']), len(msg['data']))
         # for key in msg['data'][0].keys():
         #     print(key, msg['data'][0][key])
-        t=msg['data'][0]['E']
+        t=msg['stream']
         print(t)
         # datetime.fromtimestamp(t/1000)
-        print(int(datetime.fromtimestamp(t/1000).astimezone(UTC).timestamp()))
+        # print(int(datetime.fromtimestamp(t/1000).astimezone(UTC).timestamp()))
 
-        print(datetime.fromtimestamp(t/1000).astimezone(UTC))
-        print()
+        # print(datetime.fromtimestamp(t/1000).astimezone(UTC))
+        # print()
 
         # datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)    
 
 
     def get_endpoint_trail(self):
         return '/!miniTicker@arr'
+    
+    def bind_24hr_mini_ticker(self, pair, func):
+        self.handlers[f'24hrMiniTicker_{pair.lower()}']=func
 
     # def attach(self, kline_observer):
     #     kline_stream_name=f'{kline_observer.pair.lower()}@kline_{kline_observer.bin_size}'
@@ -379,9 +327,9 @@ class BinanceFuturesWsAll(ar.BinanceFuturesWs):
 
 if __name__=="__main__":
     # ar.telegrambot.main()
-    # main2()
-    BinanceFuturesWsAll().start()
-    # x=ar.util.WebsocketConnectionMonitor()
-    # x.start_monitor()
-    while True:
-        pass
+    main2()
+    # BinanceFuturesWsMiniTickerAll().start()
+    # # x=ar.util.WebsocketConnectionMonitor()
+    # # x.start_monitor()
+    # while True:
+    #     pass

@@ -166,7 +166,7 @@ class BinanceFuturesWs:
             if 'e' in obj['data']:                
                 e = obj['data']['e']
                 action = ""                
-                datas = obj['data']                
+                datas = obj['data']           
                 
                 if e.startswith("kline"):
                     data = [{
@@ -180,9 +180,11 @@ class BinanceFuturesWs:
                     data[0]['timestamp'] = datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)    
                     # self.__emit(obj['data']['k']['i'], action, to_data_frame([data[0]]))                    
                     key=f"{datas['s'].lower()}_{obj['data']['k']['i']}"                                
-                    self.__emit(key, action, to_data_frame([data[0]]))                    
+                    self.__emit(key, action, to_data_frame([data[0]]))  
+
                 elif e.startswith("24hrTicker"):
-                    self.__emit(e, action, datas)               
+                    self.__emit(e, action, datas)    
+
 
                 elif e.startswith("ACCOUNT_UPDATE"):
                     self.__emit(e, action, datas['a']['P'])
@@ -201,12 +203,30 @@ class BinanceFuturesWs:
                     logger.info(f"listenKeyExpired!!!")
                     #self.__on_close(ws)
 
-            elif not 'e' in obj['data']:
-                e = 'IndividualSymbolBookTickerStreams'
-                action = ''
-                data = obj['data']
-                #logger.info(f"{data}")
-                self.__emit(e, action, data)
+            # elif not 'e' in obj['data']:
+            #     e = 'IndividualSymbolBookTickerStreams'
+            #     action = ''
+            #     data = obj['data']
+            #     #logger.info(f"{data}")
+            #     self.__emit(e, action, data)  
+
+            if isinstance(obj['data'], list):
+                action=''
+                datas=obj['data']                     
+                for item in datas:
+                    e=item['e']
+                    if e.startswith("24hrMiniTicker"):
+                        pair=item['s']
+                        data = [{
+                            "timestamp" : item['E'],
+                            "high" : float(item['h']),
+                            "low" : float(item['l']),
+                            "open" : float(item['o']),
+                            "close" : float(item['c']),
+                            "volume" : float(item['v'])
+                        }]
+                        data[0]['timestamp'] = datetime.fromtimestamp(data[0]['timestamp']/1000).astimezone(UTC)
+                    self.__emit(f'24hrMiniTicker_{pair.lower()}', action, to_data_frame([data[0]]))
 
         except Exception as e:
             logger.error(e)
