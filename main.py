@@ -111,6 +111,7 @@ class MiniTickerObserver(ar.BinanceFutures):
         self.bin_size=bin_size
         self.controller=controller
         self.__bind_ws(controller.ws)
+        self.data=None
 
     def __bind_ws(self, ws):
         ws.bind_24hr_mini_ticker(self.pair, self.__update_data)
@@ -149,6 +150,7 @@ class MiniTickerObserver(ar.BinanceFutures):
     def __update_data(self, action, new_data):
      
         if self.data is None:
+            self.volume_ref=new_data.iloc[0]['volume']
             self.__initialize_candle_data()
             self.__update_next_action_timestamp()
             self.on_data_init()
@@ -200,8 +202,8 @@ class PairObserver(MiniTickerObserver):
         high = self.data['high'].values
         low = self.data['low'].values
         volume = self.data['volume'].values  
-        self.strategy(open[:-1], close[:-1], high[:-1], low[:-1], volume[:-1])
         self.__announce=True
+        self.strategy(open[:-1], close[:-1], high[:-1], low[:-1], volume[:-1])
 
             
     def on_data_change(self):
