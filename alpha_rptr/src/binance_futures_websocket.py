@@ -83,7 +83,7 @@ class BinanceFuturesWs:
         self.wst.daemon = True
         self.wst.start()
         self.__keep_alive_user_datastream(self.listenKey)
-        self.monitor.set_on_timeout_command(self.__on_restart)
+        # self.monitor.set_on_timeout_command(self.__on_restart)
         self.monitor.start_monitor()
 
     def get_endpoint_trail(self):
@@ -239,7 +239,7 @@ class BinanceFuturesWs:
         if key in self.handlers:
             self.handlers[key](action, value)
 
-    def __on_restart(self, ws, *args, **kwargs):
+    def __on_restart(self):
         """
         On Restart Listener
         :param ws:
@@ -247,7 +247,7 @@ class BinanceFuturesWs:
         if 'close' in self.handlers:
             self.handlers['close']()
         
-        self.monitor.stop()
+        # self.monitor.stop()
         self.is_running=False
         time.sleep(2)
         self.is_running=True

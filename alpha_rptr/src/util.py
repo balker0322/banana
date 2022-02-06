@@ -373,21 +373,22 @@ class WebsocketConnectionMonitor:
         logger.info('monitor start')
         self.__is_running=True
         # self.__start_monitor()
-        t=threading.Thread(target=self.__start_monitor)
+        t=threading.Timer(30, self.__start_monitor)
         t.daemon = True
         t.start()
     
     def __start_monitor(self):
-        # logger.info('monitor __start')
+        logger.info('monitor __start')
         while self.__is_running:
         # while True:
             # logger.info(f'counter: {self.__counter}')
             sleep(1)
             self.__counter+=1
             if self.__counter>self.__timeout:
-                logger.info('============= self.__counter>self.__timeout ===========')
+                logger.info(f'============= no response for {self.__timeout} sec. ===========')
                 if self.__on_timeout_command:
                     self.__on_timeout_command()
+                self.reset_timeout_counter()
     
     def set_on_timeout_command(self, func):
         self.__on_timeout_command=func

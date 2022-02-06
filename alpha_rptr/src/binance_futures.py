@@ -811,7 +811,7 @@ class BinanceFutures:
             left_time_to_timestamp = int(datetime.timestamp(left_time)*1000)
             right_time_to_timestamp = int(datetime.timestamp(right_time)*1000)   
 
-            logger.info(f"fetching OHLCV data - {left_time}")         
+            # logger.info(f"fetching OHLCV data - {left_time}")         
 
             source = retry(lambda: self.client.futures_klines(symbol=self.pair, interval=fetch_bin_size,
                                                                               startTime=left_time_to_timestamp, endTime=right_time_to_timestamp,

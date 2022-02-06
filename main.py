@@ -53,9 +53,6 @@ class BinanceFutures(ar.BinanceFutures):
         self.__init_client()
         return [x['symbol'] for x in self.client.futures_exchange_info()[0]['symbols']]
 
-    # def __update_ohlcv(self, action, new_data):
-    #     print(new_data)
-
 
 class Bot(ar.Sample):
     
@@ -88,20 +85,9 @@ class Bot(ar.Sample):
         self.exchange.ohlcv_len = 20
         self.exchange.on_update(self.bin_size, self.strategy)
         self.exchange.show_result()
-        # while True:
-        #     pass
-
-    # def 
 
     def strategy(self, open, close, high, low, volume):
         print(close[-1])
-        # print(open, close, high, low, volume)
-
-    # def ohlcv_len(self):
-    #     """
-    #     The length of the OHLC to the strategy
-    #     """
-    #     return 10
 
 def main():
     Bot().run()
@@ -114,32 +100,8 @@ def ws_test():
     while True:
         pass
 
-def plot_ani():
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from time import sleep
-    # import matplotlib.pyplot as plt
-    # import numpy as np
-    # print('plot_ani')
 
-    # plt.ion()
-    # for i in range(50):
-    #     y = np.random.random([10,1])
-    #     plt.plot(y)
-    #     plt.draw()
-    #     plt.pause(0.0001)
-    #     print('plot_ani')
-    #     plt.clf()
-    
-    import matplotlib.pyplot as plt
-    plt.plot([1, 2, 3, 4])
-    plt.ylabel('some numbers')
-    plt.show()
-    while True:
-        pass
-
-
-class PairObserver(ar.BinanceFutures):
+class MiniTickerObserver(ar.BinanceFutures):
 
     ohlcv_len=5
     
@@ -165,7 +127,7 @@ class PairObserver(ar.BinanceFutures):
                 self.data = self.data[:-1] # exclude last candle
                 self.data.loc[end_time.replace(microsecond=0)] = last_candle #set last candle to end_time
 
-            ar.util.logger.info(f"Initial Buffer Fill - Last Candle: {self.data.iloc[-1].name}")
+            # ar.util.logger.info(f"Initial Buffer Fill - Last Candle: {self.data.iloc[-1].name}")
     
     def __update_next_action_timestamp(self):
         current_timestamp=int(datetime.now().timestamp())
@@ -184,12 +146,12 @@ class PairObserver(ar.BinanceFutures):
             delta_v=nd['volume']-self.volume_ref
             self.data.loc[last_data_timestamp, 'volume']+=delta_v
 
-
     def __update_data(self, action, new_data):
      
         if self.data is None:
             self.__initialize_candle_data()
             self.__update_next_action_timestamp()
+            self.on_data_init()
 
         else:
             new_data_timestamp=new_data.iloc[0].name.timestamp()
@@ -202,12 +164,7 @@ class PairObserver(ar.BinanceFutures):
                 self.__update_next_action_timestamp()
                 index=datetime.fromtimestamp(self.next_action_timestamp).astimezone(UTC)
 
-                open = self.data['open'].values
-                close = self.data['close'].values
-                high = self.data['high'].values
-                low = self.data['low'].values
-                volume = self.data['volume'].values  
-                self.strategy(open, close, high, low, volume)
+                self.on_action_timestamp()
 
                 nd_close=new_data.iloc[0]['close']
                 self.data.loc[index]={
@@ -218,15 +175,42 @@ class PairObserver(ar.BinanceFutures):
                     'volume':0.0,
                 }
                 self.data=self.data[-self.ohlcv_len:]
+                
         self.volume_ref=new_data.iloc[0]['volume']
+        self.on_data_change()
+            
+    def on_data_init(self):
+        pass
+            
+    def on_data_change(self):
+        pass
+            
+    def on_action_timestamp(self):
+        pass
 
+    def strategy(self, open, close, high, low, volume):
+        pass
+
+
+class PairObserver(MiniTickerObserver):
+            
+    def on_data_init(self):
+        open = self.data['open'].values
+        close = self.data['close'].values
+        high = self.data['high'].values
+        low = self.data['low'].values
+        volume = self.data['volume'].values  
+        self.strategy(open[:-1], close[:-1], high[:-1], low[:-1], volume[:-1])
+
+            
+    def on_data_change(self):
         # print(self.volume_ref)
 
-        # open = self.data['open'].values
-        # close = self.data['close'].values
-        # high = self.data['high'].values
-        # low = self.data['low'].values
-        # volume = self.data['volume'].values  
+        open = self.data['open'].values
+        close = self.data['close'].values
+        high = self.data['high'].values
+        low = self.data['low'].values
+        volume = self.data['volume'].values  
         # self.strategy(open, close, high, low, volume)
         # o=open[-1]
         # c=close[-1]
@@ -235,10 +219,22 @@ class PairObserver(ar.BinanceFutures):
         # v=volume[-1]
         # print(f'__update_data {self.pair}:\tclose:{c}\topen:{o}\thigh:{h}\tlow:{l}\tvolume:{v}')
 
+        percent_change=((close[-1]/open[-1])-1.0)*100.0
+        if abs(percent_change) > 2.00:
+            ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
+            
+    def on_action_timestamp(self):
+
+        open = self.data['open'].values
+        close = self.data['close'].values
+        high = self.data['high'].values
+        low = self.data['low'].values
+        volume = self.data['volume'].values  
 
     def strategy(self, open, close, high, low, volume):
         percent_change=((close[-1]/open[-1])-1.0)*100.0
-        ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
+        if abs(percent_change) > 1.00:
+            ar.util.logger.info('{}: {:.2f}%'.format(self.pair, percent_change))
         if abs(percent_change) > 2.00:
             ar.util.notify('{}: {:.2f}%'.format(self.pair, percent_change))
 
@@ -251,7 +247,6 @@ import pandas as pd
 class Controller:
 
     def __init__(self):
-        # self.ws=BinanceFuturesWs('binanceaccount2')
         self.ws=BinanceFuturesWsMiniTickerAll()
         bin_size='15m'
         self.all_pairs=self.get_all_pairs()
